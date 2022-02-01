@@ -1,0 +1,400 @@
+{
+  "nbformat": 4,
+  "nbformat_minor": 0,
+  "metadata": {
+    "colab": {
+      "name": "Semana1_DavidRangel-NataliaRuiz.ipynb",
+      "provenance": [],
+      "collapsed_sections": []
+    },
+    "kernelspec": {
+      "name": "python3",
+      "display_name": "Python 3"
+    },
+    "language_info": {
+      "name": "python"
+    }
+  },
+  "cells": [
+    {
+      "cell_type": "code",
+      "execution_count": 1,
+      "metadata": {
+        "id": "V4sVeNpOlKMy"
+      },
+      "outputs": [],
+      "source": [
+        "%matplotlib notebook \n",
+        "import numpy as np\n",
+        "import matplotlib.pyplot as plt\n",
+        "import matplotlib as mpl\n",
+        "from tqdm import tqdm \n",
+        "import matplotlib.animation as anim"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "class Particle():\n",
+        "    \n",
+        "    # init\n",
+        "    def __init__(self, r0,v0,a0,t,m,radius,Id):\n",
+        "        \n",
+        "        self.dt  = t[1] - t[0]\n",
+        "        \n",
+        "        self.r = r0\n",
+        "        self.v = v0\n",
+        "        self.a = a0\n",
+        "        \n",
+        "        self.rVector = np.zeros( (len(t),len(r0)) )\n",
+        "        self.vVector = np.zeros( (len(t),len(v0)) )\n",
+        "        self.aVector = np.zeros( (len(t),len(a0)) )\n",
+        "        \n",
+        "        self.m = m\n",
+        "        self.radius = radius\n",
+        "        self.Id = Id\n",
+        "\n",
+        "        #Energías\n",
+        "        self.pVector = np.zeros((len(t), 1))\n",
+        "        self.kVector = np.zeros((len(t), 1))\n",
+        "\n",
+        "        \n",
+        "    # Method\n",
+        "    def Evolution(self,i):\n",
+        "        \n",
+        "        self.SetPosition(i,self.r)\n",
+        "        self.SetVelocity(i,self.v)\n",
+        "        self.Setp(i, self.GetEnergiap())\n",
+        "        self.Setk(i, self.GetEnergiak())\n",
+        "\n",
+        "        # Euler method\n",
+        "        self.r += self.dt * self.v\n",
+        "        self.v += self.dt * self.a\n",
+        "    \n",
+        "    def CheckWallLimits(self,limits,dim=2):\n",
+        "        e = 0.9\n",
+        "        for i in range(dim):\n",
+        "            \n",
+        "            if self.r[i] + self.radius > limits[i]:\n",
+        "                self.v[i] = - self.v[i]*e\n",
+        "            if self.r[i] - self.radius < - limits[i]:\n",
+        "                self.v[i] = - self.v[i]*e\n",
+        "    \n",
+        "    # Setters\n",
+        "    \n",
+        "    def SetPosition(self, i, r):\n",
+        "        self.rVector[i] = r\n",
+        "        \n",
+        "    def SetVelocity(self, i, v):\n",
+        "        self.vVector[i] = v\n",
+        "      \n",
+        "    def Setp(self, i, p):\n",
+        "        self.pVector[i] = p\n",
+        "    \n",
+        "    def Setk(self, i, k):\n",
+        "        self.kVector[i] = k\n",
+        "        \n",
+        "    # Getters  \n",
+        "    def GetPositionVector(self):\n",
+        "        return self.rVector\n",
+        "    \n",
+        "    def GetRPositionVector(self):\n",
+        "        return self.RrVector \n",
+        "\n",
+        "    def GetVelocityVector(self):\n",
+        "        return self.vVector\n",
+        "    \n",
+        "    def GetR(self):\n",
+        "        return self.radius\n",
+        "    \n",
+        "    def GetEnergiak(self): \n",
+        "        return 0.5*self.m*np.linalg.norm(self.v)**2\n",
+        "    \n",
+        "    def GetEnergiap(self):\n",
+        "        return -np.dot(self.m*self.a, self.r)\n",
+        "\n",
+        "    def ReduceSize(self,factor):\n",
+        "        \n",
+        "        self.RrVector = np.array([self.rVector[0]]) # initial condition\n",
+        "        \n",
+        "        for i in range(1,len(self.rVector)):\n",
+        "            if i%factor == 0:\n",
+        "                self.RrVector = np.vstack([self.RrVector,self.rVector[i]])\n",
+        "                \n",
+        "               # print(self.RrVector)"
+      ],
+      "metadata": {
+        "id": "tw8DppCdlZIr"
+      },
+      "execution_count": 2,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "# Discretization\n",
+        "dt = 0.01\n",
+        "tmax = 30\n",
+        "t = np.arange(0,tmax+dt,dt)\n",
+        "print(len(t))"
+      ],
+      "metadata": {
+        "colab": {
+          "base_uri": "https://localhost:8080/"
+        },
+        "id": "3kihhhLglaNf",
+        "outputId": "a59d904a-802f-4576-f523-fcd91c1d71b7"
+      },
+      "execution_count": 3,
+      "outputs": [
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": [
+            "3001\n"
+          ]
+        }
+      ]
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "def GetParticles(NParticles,Limit,Velo,Dim=2,dt=0.1):\n",
+        "    \n",
+        "    Particles_ = []\n",
+        "    \n",
+        "    for i in range(NParticles):\n",
+        "        \n",
+        "        x0 = np.array([-15., 5.])\n",
+        "        v0 = np.array([1., 0.])\n",
+        "        a0 = np.array([0., -9.8])\n",
+        "        \n",
+        "        p = Particle(x0,v0,a0,t,1.,1.0,i)\n",
+        "        \n",
+        "        Particles_.append(p)\n",
+        "        \n",
+        "    return Particles_"
+      ],
+      "metadata": {
+        "id": "W0edsVy7lcSj"
+      },
+      "execution_count": 4,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "A = np.array([20.,20.])"
+      ],
+      "metadata": {
+        "id": "W2L2ecP9lecX"
+      },
+      "execution_count": 5,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "def RunSimulation(t,NParticles = 100, Velo = 6):\n",
+        "    \n",
+        "    Particles = GetParticles(NParticles,A[0],Velo = Velo,dt=dt)\n",
+        "    \n",
+        "    for it in tqdm(range(len(t))): # Evolucion temporal\n",
+        "        for i in range(len(Particles)):\n",
+        "            \n",
+        "            Particles[i].CheckWallLimits(A)\n",
+        "            Particles[i].Evolution(it)\n",
+        "        \n",
+        "    return Particles"
+      ],
+      "metadata": {
+        "id": "AVYrt79YlgAf"
+      },
+      "execution_count": 6,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "Particles = RunSimulation(t,30,Velo=50)"
+      ],
+      "metadata": {
+        "colab": {
+          "base_uri": "https://localhost:8080/"
+        },
+        "id": "c_pQ3yoslh_c",
+        "outputId": "3344735b-ea0a-4568-93dc-b5d6055f1399"
+      },
+      "execution_count": 7,
+      "outputs": [
+        {
+          "output_type": "stream",
+          "name": "stderr",
+          "text": [
+            "100%|██████████| 3001/3001 [00:02<00:00, 1072.24it/s]\n"
+          ]
+        }
+      ]
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "len(Particles[0].GetPositionVector())"
+      ],
+      "metadata": {
+        "colab": {
+          "base_uri": "https://localhost:8080/"
+        },
+        "id": "bfanWrS6ljzU",
+        "outputId": "63001d13-2d7b-4649-9120-2be72da63eb3"
+      },
+      "execution_count": 8,
+      "outputs": [
+        {
+          "output_type": "execute_result",
+          "data": {
+            "text/plain": [
+              "3001"
+            ]
+          },
+          "metadata": {},
+          "execution_count": 8
+        }
+      ]
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "def ReduceTime(t,factor):\n",
+        "    \n",
+        "    for p in Particles:\n",
+        "        p.ReduceSize(factor)\n",
+        "        \n",
+        "    Newt = []\n",
+        "    \n",
+        "    for i in range(len(t)):\n",
+        "        if i%factor == 0:\n",
+        "            Newt.append(t[i])\n",
+        "            \n",
+        "    return np.array(Newt)"
+      ],
+      "metadata": {
+        "id": "NLyhu9c5llJi"
+      },
+      "execution_count": 9,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "redt = ReduceTime(t,10)\n",
+        "len(Particles[0].GetRPositionVector())"
+      ],
+      "metadata": {
+        "colab": {
+          "base_uri": "https://localhost:8080/"
+        },
+        "id": "e9gFtR-tlm47",
+        "outputId": "87923993-6984-41bf-8612-02546d591504"
+      },
+      "execution_count": 10,
+      "outputs": [
+        {
+          "output_type": "execute_result",
+          "data": {
+            "text/plain": [
+              "301"
+            ]
+          },
+          "metadata": {},
+          "execution_count": 10
+        }
+      ]
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "fig = plt.figure(figsize=(5,5))\n",
+        "ax = fig.add_subplot(1,1,1)\n",
+        "\n",
+        "\n",
+        "def init():\n",
+        "    ax.set_xlim(-A[0],A[0])\n",
+        "    ax.set_ylim(-A[1],A[1])\n",
+        "\n",
+        "def Update(i):\n",
+        "    \n",
+        "    plot = ax.clear()\n",
+        "    init()\n",
+        "    plot = ax.set_title(r'$t=%.2f \\ seconds$' %(redt[i]), fontsize=15)\n",
+        "    \n",
+        "    for p in Particles:\n",
+        "        x = p.GetRPositionVector()[i,0]\n",
+        "        y = p.GetRPositionVector()[i,1]\n",
+        "        \n",
+        "        vx = p.GetVelocityVector()[i,0]\n",
+        "        vy = p.GetVelocityVector()[i,1]\n",
+        "        \n",
+        "        circle = plt.Circle( (x,y), p.GetR(), color='k', fill=False, label = 'Ball')\n",
+        "        plot = ax.add_patch(circle)\n",
+        "        plot = ax.arrow(x,y,vx,vy,color='r',head_width=0.5)\n",
+        "    plot = ax.legend(loc=0)\n",
+        "        \n",
+        "    return plot\n",
+        "\n",
+        "Animation = anim.FuncAnimation(fig,Update,frames=len(redt),init_func=init)"
+      ],
+      "metadata": {
+        "colab": {
+          "base_uri": "https://localhost:8080/",
+          "height": 324
+        },
+        "id": "x1HoEeRglo4w",
+        "outputId": "08a8e39e-5248-4d4a-c4d8-bf6443afeba0"
+      },
+      "execution_count": 14,
+      "outputs": [
+        {
+          "output_type": "display_data",
+          "data": {
+            "image/png": "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\n",
+            "text/plain": [
+              "<Figure size 360x360 with 1 Axes>"
+            ]
+          },
+          "metadata": {
+            "needs_background": "light"
+          }
+        }
+      ]
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "Writer = anim.writers['ffmpeg']\n",
+        "writer_ = Writer(fps=50, metadata=dict(artist='Me'))\n",
+        "#Animation.save('FallingBall.mp4', writer=writer_)"
+      ],
+      "metadata": {
+        "id": "R_BKqNAjlsPT"
+      },
+      "execution_count": 12,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "def RemoveParticles(Particles):\n",
+        "    print('--- Deleting Particles---')\n",
+        "    for i in range(len(Particles)):\n",
+        "        if len(Particles) > 0:\n",
+        "            del Particles[-1]"
+      ],
+      "metadata": {
+        "id": "OXNC6zPylvqU"
+      },
+      "execution_count": 13,
+      "outputs": []
+    }
+  ]
+}
